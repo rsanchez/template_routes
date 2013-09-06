@@ -21,6 +21,12 @@ Your routing rules must be set in your system/expressionengine/config/config.php
 
 On the left are the URIs you wish to match, and on the right are `template_group/template_name` pairs. You may use wildcard matching in your rule definitions.
 
+If you are running an MSM site and you wish to load a template from a another MSM site, use the site short name before the template definition:
+	
+	$config['template_routes'] = array(
+		'blog/:category' => 'site_short_name:site/blog-category',
+	);
+
 ### Wildcards
 
 #### :any

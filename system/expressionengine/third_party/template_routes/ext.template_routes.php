@@ -31,7 +31,7 @@ class Template_routes_ext {
 	public $docs_url		= '';
 	public $name			= 'Template Routes';
 	public $settings_exist	= 'n';
-	public $version			= '1.0.1';
+	public $version			= '1.0.2';
 	
 	private $EE;
 	
@@ -87,8 +87,19 @@ class Template_routes_ext {
 			'priority'  => 1,
 		);
 
-		$this->EE->db->insert('extensions', $data);			
+		$this->EE->db->insert('extensions', $data);
 		
+		$data = array(
+			'class'		=> __CLASS__,
+			'method'	=> 'template_fetch_template',
+			'hook'		=> 'template_fetch_template',
+			'settings'	=> serialize($this->settings),
+			'version'	=> $this->version,
+			'enabled'	=> 'y',
+			'priority'  => 1,
+		);
+
+		$this->EE->db->insert('extensions', $data);
 	}
 
 	// ----------------------------------------------------------------------
@@ -321,6 +332,40 @@ class Template_routes_ext {
 			{
 				// prevent other extensions from messing with us
 				$this->EE->extensions->end_script = TRUE;
+
+				// does this route have a site name before the template definition?
+				// eg. your_site_short_name:template_group/template
+				if (($pos = strpos($route['template'], ':')) !== FALSE)
+				{
+					$site_short_name = substr($route['template'], 0, $pos);
+
+					$route['template'] = substr($route['template'], $pos + 1);
+
+					//only do this on MSM enabled sites
+					if ($this->EE->config->item('multiple_sites_enabled') === 'y' && ! IS_CORE)
+					{
+						//get all the sites if they're not already set
+						if (empty($this->EE->TMPL->sites))
+						{
+							$query = $this->EE->db->select('site_id, site_name')
+												  ->get('sites');
+
+							foreach($query->result() as $row)
+							{
+								$this->EE->TMPL->sites[$row->site_id] = $row->site_name;
+							}
+						}
+
+						if (($site_id = array_search($site_short_name, $this->EE->TMPL->sites)) !== FALSE)
+						{
+							//cache the current site id for later
+							$this->EE->session->set_cache(__CLASS__, 'current_site_id', $this->EE->config->item('site_id'));
+
+							//spoof the site id of the target template, so the template class pulls the template from the correct site
+							$this->EE->config->set_item('site_id', $site_id);
+						}
+					}
+				}
 				
 				// set the route as array from the template string
 				return explode('/', $route['template']);
@@ -329,6 +374,15 @@ class Template_routes_ext {
 
 		// set the default route to any other extension calling this hook
 		return $this->EE->extensions->last_call;
+	}
+
+	public function template_fetch_template($row)
+	{
+		//is there a site_id to restore?
+		if ($site_id = $this->EE->session->cache(__CLASS__, 'current_site_id'))
+		{
+			$this->EE->config->set_item('site_id', $site_id);
+		}
 	}
 
 	// ----------------------------------------------------------------------
@@ -361,6 +415,26 @@ class Template_routes_ext {
 		if ($current == '' OR $current == $this->version)
 		{
 			return FALSE;
+		}
+
+		if (version_compare($current, '1.0.2', '<'))
+		{
+			$query = $this->EE->db->select('settings')
+								  ->where('class', __CLASS__)
+								  ->limit(1)
+								  ->get('extensions');
+
+			$data = array(
+				'class'		=> __CLASS__,
+				'method'	=> 'template_fetch_template',
+				'hook'		=> 'template_fetch_template',
+				'settings'	=> $query->row('settings'),
+				'version'	=> $this->version,
+				'enabled'	=> 'y',
+				'priority'  => 1,
+			);
+
+			$this->EE->db->insert('extensions', $data);
 		}
 	}	
 	
