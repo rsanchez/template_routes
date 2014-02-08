@@ -1,1 +1,1 @@
-The branch of Template Routes has been spun off into its own addon, [Resource Router](https://github.com/rsanchez/resource_router).
+The feature/callbacks branch of Template Routes has been spun off into its own addon, [Resource Router](https://github.com/rsanchez/resource_router).
